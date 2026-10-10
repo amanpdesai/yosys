@@ -239,8 +239,10 @@ struct MemoryMapWorker
 					c->setPort(ID::CLK, refclock);
 				}
 				c->parameters[ID::WIDTH] = mem.width;
+				c->set_src_attribute(mem.cell->get_src_attribute());
 
 				RTLIL::Wire *w_in = module->addWire(genid(mem.memid, "", addr, "$d"), mem.width);
+				w_in->set_src_attribute(mem.cell->get_src_attribute());
 				data_reg_in[idx] = w_in;
 				c->setPort(ID::D, w_in);
 
@@ -249,6 +251,7 @@ struct MemoryMapWorker
 					w_out_name = genid(mem.memid, "", addr, "$q");
 
 				RTLIL::Wire *w_out = module->addWire(w_out_name, mem.width);
+				w_out->set_src_attribute(mem.cell->get_src_attribute());
 
 				if (formal && mem.packed && mem.cell->name.c_str()[0] == '\\') {
 					auto hdlname = mem.cell->get_hdlname_attribute();
@@ -277,8 +280,14 @@ struct MemoryMapWorker
 		for (int i = 0; i < GetSize(mem.rd_ports); i++)
 		{
 			auto &port = mem.rd_ports[i];
-			if (mem.extract_rdff(i, &initvals))
+			RTLIL::Cell *rdff = mem.extract_rdff(i, &initvals);
+			if (rdff) {
 				count_dff++;
+				rdff->set_src_attribute(mem.cell->get_src_attribute());
+				for (RTLIL::SigBit bit : rdff->getPort(ID::Q))
+					if (bit.wire != nullptr)
+						bit.wire->set_src_attribute(mem.cell->get_src_attribute());
+			}
 			RTLIL::SigSpec rd_addr = port.addr;
 			rd_addr.extend_u0(abits, false);
 
